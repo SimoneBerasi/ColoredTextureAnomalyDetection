@@ -52,6 +52,7 @@ class SCFpyr_TF():
         # Cache constants
 
         self.lutsize = 1024
+
         self.Xcosn = np.pi * np.array(range(-(2*self.lutsize+1), (self.lutsize+2)))/self.lutsize
         self.alpha = (self.Xcosn + self.PI) % (2*self.PI) - self.PI
         self.patch_size = patch_size

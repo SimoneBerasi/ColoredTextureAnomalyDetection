@@ -17,7 +17,7 @@ from Training import *
 '''
 class CustomSequence(Sequence):
 
-    def __init__(self, filenames_in, batch_size, color_space = 'cielab', shuffle = True, max = 102., patch_size=128, n_patches=200):       #label not provided as x = y
+    def __init__(self, filenames_in, batch_size, color_space = 'cielab', shuffle = True, max = 102., patch_size=128, n_patches=200, color_only=False, grey_only = False):       #label not provided as x = y
         self.max = max
         self.color_space = color_space
         self.batch_size = batch_size
@@ -28,6 +28,8 @@ class CustomSequence(Sequence):
         self.datalen = len(filenames_in)
         self.indexes = np.arange(self.datalen)
         self.counter=0
+        self.color_only = color_only
+        self.grey_only = grey_only
         if self.shuffle:
             np.random.shuffle(self.indexes)
 
@@ -37,14 +39,21 @@ class CustomSequence(Sequence):
         #filenames_batch = self.x[batch_indexes]
 
         x_batch = load_patches_from_filenames(filenames_batch, self.patch_size, True, self.n_patches, grayscale=False)
+
         #visualize_results(x_batch[0], x_batch[1], "a")
-        if self.color_space == 'cielab':
+        if self.color_space == 'cielab' and self.grey_only == False:
             x_batch = prepare_dataset_colorssim(x_batch)
             x_batch = x_batch / self.max
         else:
             x_batch = x_batch / 255.
         #print("getting an item of shape :")
         #print(x_batch.shape)
+
+        if self.color_only:
+            return x_batch[:,:,:, 1:3], x_batch[:,:,:, 1:3]
+        if self.grey_only:
+            return x_batch[:,:,:, 0], x_batch[:,:,:, 0]
+
 
 
         return x_batch, x_batch

@@ -2,6 +2,7 @@ import argparse
 import configparser
 import os
 
+import Grey_prediction
 import Training
 import Prediction
 from DataLoader import *
@@ -9,7 +10,7 @@ from Evaluation import Evaluation
 
 
 def check_action(value):
-    if value != "training" and value != "evaluation" and value != 'prediction':
+    if value != "training" and value != "evaluation" and value != 'prediction' and value != "grey_prediction":
         raise argparse.ArgumentTypeError("Invalid action argument")
     return value
 
@@ -23,7 +24,7 @@ def check_config_file(value):
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-a', action="store", help='Action to perform: training, prediction or evaluation',
+    parser.add_argument('-p', action="store", help='Action to perform: training, prediction or evaluation',
                         dest="action", type=check_action, required=True)
     parser.add_argument('-f', action="store", help='Configuration file path', dest="file", type=check_config_file,
                         required=True)
@@ -72,6 +73,18 @@ if __name__ == "__main__":
 
 
         Prediction.predict()
+
+    elif (args.action == 'grey_prediction'):
+        Grey_prediction.weights_file = config['PREDICTION']['WeightsFile'];
+        Grey_prediction.anomaly_metrics = config['PREDICTION']['AnomalyMetrics']
+        Grey_prediction.ae_patch_size = int(config['PREDICTION']['PatchSize']);
+        Grey_prediction.test_dir = config['PREDICTION']['Test_dir']
+        Training.ae_stride = int(config['PREDICTION']['Stride'])
+        Grey_prediction.ae_batch_splits = int(config['PREDICTION']['BatchSplits']);
+        Training.invert_reconstruction = bool(config['PREDICTION']['InvertReconstruction'])
+        Training.fpr_value = float(config['PREDICTION']['ThresholdFPR']);
+
+        Grey_prediction.predict()
 
     else:
         Evaluation.anomaly_maps_dir = config['EVALUATION']['anomaly_maps_dir']

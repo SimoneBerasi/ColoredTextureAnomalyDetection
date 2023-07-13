@@ -8,14 +8,6 @@ import hashlib
 
 def load_patches_from_filenames(filenames, patch_size, random, n_patches=3, grayscale=False):
 
-    # open text file
-    text_file = open("names.txt", "a")
-
-    # write string to file
-    text_file.write(filenames[0] + '\n')
-
-    # close file
-    text_file.close()
 
 
     patches=[]
@@ -40,7 +32,7 @@ def load_patches_from_file(file, patch_size, random, n_patches=3, stride=32, gra
         im1 = cv2.cvtColor(im1, cv2.COLOR_BGR2RGB)
 
 
-    #np.random.seed(hash(file)%99999)
+    np.random.seed(hash(file)%99999)
 
 
     cropped = []

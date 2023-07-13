@@ -5,8 +5,8 @@ from Utils import visualize_results, visualize_result3
 import tensorflow as tf
 
 
-pad_size_color = 1
-color_win_size = 3
+pad_size_color = 3
+color_win_size = 7 #todo restore 3
 img_size = 1024
 
 
@@ -75,7 +75,11 @@ def cw_ssimcolor_metric(x_valid, y_valid, pad_size_x, pad_size_y, gray_scale, pa
     y_valid_color = tf.pad(y_valid, paddings_color, "SYMMETRIC")
     #TODO restore
     c = tf.keras.losses.MSE(x_valid_color[:,:,1:3], y_valid_color[:,:,1:3])
+
+
     #c = tf.keras.losses.MSE(x_valid_color, y_valid_color)
+
+    visualize_results(c,c,"c")
     window = (tf.constant(np.ones((color_win_size, color_win_size, 1, 1)) / (color_win_size * color_win_size)))
 
 
@@ -100,7 +104,10 @@ def cw_ssimcolor_metric(x_valid, y_valid, pad_size_x, pad_size_y, gray_scale, pa
 
 
 
-    return residual_color, residual_cwssim, 1 - residual_color*residual_cwssim
+
+
+
+    return 1-residual_color, 1 - residual_cwssim, 1 - residual_color*residual_cwssim
 
 
 

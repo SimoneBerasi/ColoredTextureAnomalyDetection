@@ -30,7 +30,7 @@ anomaly_maps_directory = "out/Maps"
 weights_file = 'WeightsFile = Weights/new_weights/check_epoch11mhgdf6.h5'
 
 
-def image_reconstruction(y_valid, stride):
+def image_reconstruction(y_valid):
 
     reconstrunction = np.zeros((img_size, img_size, 3))  # The 3 are added only for color images
     normalizator = np.zeros((img_size, img_size, 3))
@@ -42,10 +42,10 @@ def image_reconstruction(y_valid, stride):
         normalizator[j:j + ae_patch_size, i:i + ae_patch_size] += np.ones((ae_patch_size, ae_patch_size, 3))
 
         if (i + ae_patch_size < img_size):
-            i = i + stride
+            i = i + ae_stride
         else:
             i = 0
-            j = j + stride
+            j = j + ae_stride
     reconstrunction = reconstrunction / normalizator
 
     return reconstrunction
@@ -65,45 +65,40 @@ def compute_anomaly_map(image_path, autoencoder, patch_size, image_size, stride,
     patches = np.array(patches)
     patches = prepare_dataset_colorssim(patches) / max
 
-    print("prima")
+
     _, pred = batch_evaluation(patches, autoencoder, ae_batch_splits)
-    print("dopo")
     pred = np.array(pred)
 
-
-
-    invert_first_axis=False
+    invert_first_axis=True
     if invert_first_axis:
         pred[:, :, :, 0] = pred[:, :, :, 0] * (-1)
 
-    #pred[:, :, :, 2] = pred[:, :, :, 2] * (-1)
-    pred[:, :, :, 0] = pred[:, :, :, 0] * (-1)
 
-    print(pred)
 
     #todo restore
-    predicted_image_lab = image_reconstruction(pred, stride)*max
-    print(type(predicted_image_lab[0][0][0]))
+    predicted_image_lab = image_reconstruction(pred)*max
     #visualize_results(img[:,:,0], predicted_image_lab[:,:,0])
     #predicted_image_lab = pred*max
 
-
+    print(" min max prediction")
+    print(np.min(predicted_image_lab/max))
+    print(np.max(predicted_image_lab/max))
     y_valid_lab = rgb2lab(y_valid)
     #predicted_image_lab[:,:,0] = predicted_image_lab[:,:,0] * (-1)
     #predicted_image_lab[:,:,2] = predicted_image_lab[:,:,2] * (-1)
 
     predicted_image = lab2rgb(predicted_image_lab)
-
+    print("predicted image")
+    print(predicted_image[:,:,0])
     visualize_results(y_valid, predicted_image, 'img vs rec')
 
     valid_img = prepare_image_colorssim(y_valid)/max
-
     experimental_residual_total, residual_cwssim, residual_total = cw_ssimcolor_metric(predicted_image_lab/max, valid_img, 1024, 1024, False, pad_size = 0)
 
-    #return residual_cwssim
+    return residual_cwssim
     return residual_total
 
-def compute_anomaly_map_imagewise(image_path, autoencoder, patch_size, image_size, stride, max, invert_first_axis = False, pad_size = 0):
+def compute_grey_anomaly_map(image_path, autoencoder, patch_size, image_size, stride, max, invert_first_axis = False, pad_size = 0):
 
     img = cv2.imread(image_path)
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -118,46 +113,36 @@ def compute_anomaly_map_imagewise(image_path, autoencoder, patch_size, image_siz
     patches = prepare_dataset_colorssim(patches) / max
 
 
+    _, pred = batch_evaluation(patches, autoencoder, ae_batch_splits)
+    pred = np.array(pred)
 
-
-    img = prepare_image_colorssim(img) / max
-
-
-    img = np.reshape(img, (1, 1024, 1024, 3))
-
-
-    #_, predicted_image_lab = batch_evaluation(img, autoencoder, ae_batch_splits)
+    invert_first_axis=True
+    if invert_first_axis:
+        pred[:, :, :, 0] = pred[:, :, :, 0] * (-1)
 
 
 
-    predicted_image_lab = autoencoder(img).numpy()
-    print(predicted_image_lab)
+    #todo restore
+    predicted_image_lab = image_reconstruction(pred)*max
+    #visualize_results(img[:,:,0], predicted_image_lab[:,:,0])
+    #predicted_image_lab = pred*max
 
-    #predicted_image_lab[:, :, :, 2] = predicted_image_lab[:, :, :, 2] * (-1)
-    predicted_image_lab[:, :, :, 0] = predicted_image_lab[:, :, :, 0] * (-1)
-
-    predicted_image_lab = np.squeeze(predicted_image_lab) *max
-    predicted_image_lab = np.array(predicted_image_lab)
-
-    predicted_image_lab = predicted_image_lab.astype('float64')
-
-    print("prima")
-
+    print(" min max prediction")
+    print(np.min(predicted_image_lab/max))
+    print(np.max(predicted_image_lab/max))
     y_valid_lab = rgb2lab(y_valid)
     #predicted_image_lab[:,:,0] = predicted_image_lab[:,:,0] * (-1)
     #predicted_image_lab[:,:,2] = predicted_image_lab[:,:,2] * (-1)
 
     predicted_image = lab2rgb(predicted_image_lab)
-
+    print("predicted image")
+    print(predicted_image[:,:,0])
     visualize_results(y_valid, predicted_image, 'img vs rec')
 
     valid_img = prepare_image_colorssim(y_valid)/max
-
     experimental_residual_total, residual_cwssim, residual_total = cw_ssimcolor_metric(predicted_image_lab/max, valid_img, 1024, 1024, False, pad_size = 0)
-    print("dopo")
-    #return residual_cwssim
-    return residual_total
 
+    return residual_cwssim
 
 def compute_anomaly_map_separated_aes(image_path, autoencoder_grey, autoencoder_color, patch_size, image_size, stride, max, invert_first_axis = False, pad_size = 0):
 
@@ -261,7 +246,6 @@ def predict():
     Test2(test_dir)
 
 
-    #autoencoder = Model_noise_skip_bigger_old(input_shape=(None, None, 3))
     autoencoder = Model_noise_skip_bigger_old(input_shape=(None, None, 3))
     #autoencoder = Model_noise_skip_bigger(input_shape=(None, None, 3))
     autoencoder.load_weights(weights_file)
@@ -276,14 +260,14 @@ def predict():
     total_max_color_loss = 0
     for item in f_list:
         #todo restore
-        anomaly_map = compute_anomaly_map(item, autoencoder, 256, 1024, 16, 101)
+        anomaly_map = compute_grey_anomaly_map(item, autoencoder, 256, 1024, 16, 101)
         #anomaly_map = compute_anomaly_map_separated_aes(item, autoencoder_grey, autoencoder_color, 256, 1024, ae_stride, max=101)
 
         if np.max(anomaly_map) > total_max_color_loss:
             total_max_color_loss = np.max(anomaly_map)
         anomaly_map = np.array(anomaly_map)
 
-        #anomaly_map = anomaly_map / np.max(anomaly_map)
+        # anomaly_map = anomaly_map / np.max(anomaly_map)
         anomaly_map = np.reshape(anomaly_map, (1024, 1024))
         #anomaly_map = anomaly_map[92:1024-92, 92:1024-92] #used only for tile
         #anomaly_map = np.reshape(anomaly_map, (840, 840))

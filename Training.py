@@ -24,11 +24,11 @@ import os
 
 from NNModels import Model_noise_skip_bigger
 
-training_dataset_path = '/home/simo/Desktop/Thesis Projects/AnomalyDetectionBionda/Dataset/MVTec_Data/wood/train/good'
+training_dataset_path = '/home/simo/Desktop/Thesis Projects/AnomalyDetectionBionda/Datasethtd/MVTec_Data/sxaf/train/good'
 
 loss_type = 'color_cwssim_loss'
 window_size = 7
-scales = 5
+scales =6
 orients = 5
 
 
@@ -38,11 +38,11 @@ decay_fac = 0.3
 decay_step = 8
 epoch = 50
 batch_size = 32
-patch_size = 256
+patch_size = 128
 save_period = 5
 num_channel = 3
 pad_size = 3
-color_parameter = 0.1
+color_parameter = 40
 color_space = 'cielab'
 steps_per_epoch = 250
 generator_batch_size = 1
@@ -86,8 +86,43 @@ def color_cwssim_loss(y_true, y_pred):
     color_loss = tf.keras.losses.MSE(y_true[:,:,:, 1:3], y_pred[:,:,:, 1:3])
 
     #TODO try with + or imcrease color_parameter for a faster converging. Or use 2 different aes
+    color_scores = tf.math.reduce_mean(1. - color_loss/45)
+    loss = tf.math.reduce_mean(1. - cwssim_scores*color_scores)
+    return loss
+
+def color_cwssim_loss_no_padding(y_true, y_pred):
+
+
+    metric_tf = Metric_win (patch_size, window_size=window_size, pad_size = 0)
+    cwssim_scores = metric_tf.CWSSIM(tf.expand_dims(y_pred[:,:,:,0],3) , tf.expand_dims(y_true[:,:,:,0],3), height=scales, orientations=orients)
+
+    #Here the computation of color factor, only on a and b planes
+    color_loss = tf.keras.losses.MSE(y_true[:,:,:, 1:3], y_pred[:,:,:, 1:3])
+
+    #TODO try with + or imcrease color_parameter for a faster converging. Or use 2 different aes
     color_scores = tf.math.reduce_mean(1. - color_loss/color_parameter)
     loss = tf.math.reduce_mean(1. - cwssim_scores*color_scores)
+    return loss
+
+def cwssim_only_metric(y_true, y_pred):
+    paddings_cwssim = tf.constant([[0, 0], [pad_size, pad_size], [pad_size, pad_size]])
+
+    y_true_cwssim = tf.pad(y_true[:, :, :, 0], paddings_cwssim, "SYMMETRIC")
+    y_pred_cwssim = tf.pad(y_pred[:, :, :, 0], paddings_cwssim, "SYMMETRIC")
+
+    metric_tf = Metric_win (patch_size, window_size=window_size, pad_size = 6)
+    cwssim_scores = metric_tf.CWSSIM(tf.expand_dims(y_pred_cwssim, 3), tf.expand_dims(y_true_cwssim, 3), height=scales, orientations=orients)
+
+
+    loss = tf.math.reduce_mean(1. - cwssim_scores)
+    return loss
+
+def color_only_metric(y_true, y_pred):
+    color_loss = tf.keras.losses.MSE(y_true[:,:,:, 1:3], y_pred[:,:,:, 1:3])
+
+
+    color_scores = tf.math.reduce_mean(1. - color_loss/color_parameter)
+    loss = tf.math.reduce_mean(1. - color_scores)
     return loss
 
 def color_cwssim_loss_SUM(y_true, y_pred):
@@ -106,6 +141,7 @@ def color_cwssim_loss_SUM(y_true, y_pred):
     #TODO try with + or imcrease color_parameter for a faster converging. Or use 2 different aes
     color_loss = tf.math.reduce_mean(color_loss)
     loss = tf.math.reduce_mean(1. - cwssim_scores)
+
     return loss + color_loss
 
 
@@ -205,8 +241,9 @@ def train():
     for name in filenames:
         path_filnames.append(training_dataset_path + '/' + name)
 
-
-    training_batch_generator = CustomSequence(path_filnames, 1, color_space=color_space, max=102, patch_size = patch_size, n_patches=25 )
+    #todo rstore
+    training_batch_generator = CustomSequence(path_filnames, 1, color_space=color_space, max=102, patch_size = patch_size, n_patches=200 )
+    #training_batch_generator = CustomSequence(path_filnames, 1, color_space=color_space, max=102, patch_size = patch_size, n_patches=25, color_only=True )
 
 
     #train_dataset = tf.data.Dataset.from_generator(lambda: training_batch_generator, output_types=(tf.float64, tf.float64))
@@ -215,29 +252,32 @@ def train():
 
 
     loss_function = None
-    for loss in [cwssim_loss, ssim_loss, ms_ssim_loss, l2_loss, cwssim_occd_loss, perceptual_loss,psnr_color_loss, color_cwssim_loss, cwssim_loss_3channel]:
+    for loss in [cwssim_loss, color_cwssim_loss_SUM, ssim_loss, ms_ssim_loss, l2_loss, cwssim_occd_loss, perceptual_loss,psnr_color_loss, color_cwssim_loss, cwssim_loss_3channel]:
         if (loss.__name__ == loss_type):
             loss_function = loss
 
     callbacks = []
     callbacks.append(tf.keras.callbacks.LearningRateScheduler(scheduler))
-    callbacks.append(tf.keras.callbacks.ModelCheckpoint(filepath=os.path.join('Weights','new_weights','check_epoch{epoch:02d}.h5'), save_weights_only=True, period=save_period))
+    callbacks.append(tf.keras.callbacks.ModelCheckpoint(filepath=os.path.join('Weights','new_weights','ccwssim_wood_128_fixed{epoch:02d}.h5'), save_weights_only=True, period=save_period))
 
-    autoencoder = Model_noise_skip_bigger(input_shape=(None, None, 3))
+    autoencoder = Model_noise_skip_bigger_old(input_shape=(None, None, 3))
 
     #todo remove
-    #autoencoder.load_weights('Weights/new_weights/check_epoch240.h5')
+    autoencoder.load_weights('Weights/new_weights/ccwssim_wood_128_fixed150.h5')
 
     if loss_function.__name__ == 'cwssim_occd_loss':
         occd_model = keras.models.load_model('OCCD_model_50k')
         occd_model.summary()
 
-    autoencoder.compile(optimizer='adam', loss=loss_function)
+    #autoencoder.compile(optimizer='adam', loss=loss_function, metrics=[color_only_metric])
+    #autoencoder.compile(optimizer='adam', loss=color_cwssim_loss_SUM, metrics=[color_only_metric, cwssim_only_metric])
+    autoencoder.compile(optimizer='adam', loss=color_cwssim_loss, metrics=[color_only_metric, cwssim_only_metric])
+
 
     #ideal
     #autoencoder.fit(training_batch_generator,steps_per_epoch=250, use_multiprocessing=False, workers=8, epochs=epoch, shuffle=True,  callbacks=callbacks, initial_epoch = 110)
 
-    autoencoder.fit(training_batch_generator,steps_per_epoch=2000, use_multiprocessing=False, workers=8, epochs=epoch, shuffle=True,  callbacks=callbacks, initial_epoch = 0)
+    autoencoder.fit(training_batch_generator,steps_per_epoch=250, verbose=1, use_multiprocessing=False, workers=8, epochs=epoch, shuffle=True,  callbacks=callbacks, initial_epoch = 30)
 
 
 

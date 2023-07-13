@@ -87,6 +87,7 @@ def parse_dataset_files(object_name, dataset_base_dir, anomaly_maps_dir):
     # List all ground truth and corresponding anomaly images.
     for subdir in listdir(str(test_dir)):
 
+
         if not subdir.replace('_', '').isalpha():
             continue
 
@@ -94,16 +95,24 @@ def parse_dataset_files(object_name, dataset_base_dir, anomaly_maps_dir):
         test_images = [path.splitext(file)[0]
                        for file
                        in listdir(path.join(test_dir, subdir))
-                       if path.splitext(file)[1] == '.png']
+                       if path.splitext(file)[1] == '.png' or path.splitext(file)[1] == '.tif']
 
         # If subdir is not 'good', derive corresponding GT names.
-        if subdir != 'good':
+        if subdir != 'good' and object_name != 'sem':
             gt_filenames.extend(
                 [path.join(gt_base_dir, subdir, file + '_mask.png')
                  for file in test_images])
-        else:
+        elif object_name != 'sem':
             # No ground truth maps exist for anomaly-free images.
             gt_filenames.extend([None] * len(test_images))
+
+
+        if subdir != 'good' and object_name == 'sem':
+
+            gt_filenames.extend(
+                [path.join(gt_base_dir, subdir, file + '_gt.png')
+                 for file in test_images])
+
 
         # Fetch corresponding anomaly maps.
         prediction_filenames.extend(
@@ -111,6 +120,7 @@ def parse_dataset_files(object_name, dataset_base_dir, anomaly_maps_dir):
              for file in test_images])
 
     print(f"Parsed {len(gt_filenames)} ground truth image files.")
+
 
     return gt_filenames, prediction_filenames
 
@@ -165,6 +175,8 @@ def calculate_au_pro_au_roc(gt_filenames,
         pro_curve[0], pro_curve[1], x_max=integration_limit)
     au_pro /= integration_limit
     print(f"AU-PRO (FPR limit: {integration_limit}): {au_pro}")
+
+
     
     roc_score = compute_segmentation_roc(
         anomaly_maps=predictions,
@@ -198,6 +210,7 @@ def calculate_au_pro_au_roc(gt_filenames,
 
 
 def evaluate(args):
+
     """Calculate the performance metrics for a single experiment on the
     MVTec AD dataset.
     """
@@ -256,10 +269,10 @@ def evaluate(args):
     if output_dir is not None:
         makedirs(output_dir, exist_ok=True)
 
-        with open(path.join(output_dir, 'metrics.json'), 'w') as file:
+        with open(path.join(output_dir, args[4][0]), 'w') as file:
             json.dump(evaluation_dict, file, indent=4)
 
-        print(f"Wrote metrics to {path.join(output_dir, 'metrics.json')}")
+        print(f"Wrote metrics to {path.join(output_dir, args[4][0])}")
 
 
 

@@ -50,16 +50,16 @@ def extract_table_rows(metrics_folder, metric):
     # Iterate each experiment.
     exp_ids = os.listdir(metrics_folder)
     exp_id_to_json_path = {
-        exp_id: join(metrics_folder, exp_id, 'metrics.json')
+        exp_id: join(metrics_folder, exp_id, 'metrics_leather_colorw3.json')
         for exp_id in exp_ids
-        if os.path.exists(join(metrics_folder, exp_id, 'metrics.json'))
+        if os.path.exists(join(metrics_folder, exp_id, 'metrics_leather_colorw3.json'))
     }
 
-    # If there is a metrics.json file in the metrics_folder, also print that.
+    # If there is a metrics_leather_colorw3.json file in the metrics_folder, also print that.
     # This is the case when evaluate_experiment.py has been called.
-    root_metrics_json_path = join(metrics_folder, 'metrics.json')
+    root_metrics_json_path = join(metrics_folder, 'metrics_leather_colorw3.json')
     if os.path.exists(root_metrics_json_path):
-        exp_id = join(os.path.split(metrics_folder)[-1], 'metrics.json')
+        exp_id = join(os.path.split(metrics_folder)[-1], 'metrics_leather_colorw3.json')
         exp_id_to_json_path[exp_id] = root_metrics_json_path
 
     rows = []
